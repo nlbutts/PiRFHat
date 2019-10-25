@@ -915,6 +915,8 @@ F 0 "J3" H 13950 4767 50  0000 C CNN
 F 1 "Conn_02x20_Odd_Even" H 13950 4676 50  0000 C CNN
 F 2 "Connector_Molex:Molex_SlimStack_501920-4001_2x20_P0.50mm_Vertical" H 13900 3650 50  0001 C CNN
 F 3 "~" H 13900 3650 50  0001 C CNN
+F 4 "WM9211DKR-ND" H 13900 3650 50  0001 C CNN "Digikey"
+F 5 "0538850408" H 13900 3650 50  0001 C CNN "Partnum"
 	1    13900 3650
 	1    0    0    -1  
 $EndComp
@@ -1068,8 +1070,8 @@ F 0 "J5" H 5428 8188 50  0000 C CNN
 F 1 "Conn_Coaxial" H 5428 8097 50  0000 C CNN
 F 2 "Connector_Coaxial:SMA_Amphenol_132289_EdgeMount" H 5500 7950 50  0001 C CNN
 F 3 " ~" H 5500 7950 50  0001 C CNN
-F 4 "A97594-ND" H 5500 7950 50  0001 C CNN "Digikey"
-F 5 "5-1814832-1" H 5500 7950 50  0001 C CNN "Partnum"
+F 4 "CON-SMA-EDGE-S-ND" H 5500 7950 50  0001 C CNN "Digikey"
+F 5 "CON-SMA-EDGE-S" H 5500 7950 50  0001 C CNN "Partnum"
 	1    5500 7950
 	-1   0    0    -1  
 $EndComp
@@ -1200,9 +1202,9 @@ Wire Wire Line
 	2000 2750 800  2750
 Wire Wire Line
 	2000 2850 800  2850
-Text Label 4400 2950 2    50   ~ 0
+Text Label 800  3150 0    50   ~ 0
 HAT_PG
-Text Label 4400 3050 2    50   ~ 0
+Text Label 800  3250 0    50   ~ 0
 HAT_PWR_EN
 Text Label 800  2350 0    50   ~ 0
 GPS_SDA
