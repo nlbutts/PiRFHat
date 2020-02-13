@@ -1,5 +1,14 @@
 # PiRFHat
-An RF Hat to hold Appareo's GRIM modules
+This project is a Pi Hat that incorporates an ST Teseo GPS receiver and a RFM9x LoRa module.
 
-This is a simple Pi Hat that allows Appareo's GRIM modules to be placed on top and connected to a Raspberry Pi. 
-The GRIMs come in several flavors: OpenThread, sub-gig, and UWB.
+The GPS receiver uses gpsd and is pretty straigtforward to get setup
+```
+apt-get install gpsd
+```
+
+Next modify **/lib/systemd/system/gpsd.service** and change the following file:
+```
+ExecStart=/usr/sbin/gpsd $GPSD_OPTIONS /dev/ttyS0
+```
+
+TBD working on Python code to send and receive data

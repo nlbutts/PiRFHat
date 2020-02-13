@@ -343,27 +343,28 @@ class RFM9x:
 
     bw_bins = (7800, 10400, 15600, 20800, 31250, 41700, 62500, 125000, 250000)
 
-    def __init__(self, bus, cs, reset, frequency, *, preamble_length=8,
+    def __init__(self, spibus, cs, reset, frequency, *, preamble_length=8,
                  high_power=True, baudrate=5000000):
         self.high_power = high_power
         # Device support SPI mode 0 (polarity & phase = 0) up to a max of 10mhz.
         # Set Default Baudrate to 5MHz to avoid problems
         # self._device = spidev.SPIDevice(spi, cs, baudrate=baudrate,
         #                                 polarity=0, phase=0)
-        self._device = spidev.SpiDev()
-        self._device.open(bus, cs)
-        self._device.max_speed_hz = baudrate
-        self._device.cshigh = False
+        self._device = spibus
         # Setup reset as a digital input (default state for reset line according
         # to the datasheet).  This line is pulled low as an output quickly to
         # trigger a reset.  Note that reset MUST be done like this and set as
         # a high impedence input or else the chip cannot change modes (trust me!).
         self._reset = reset
+        self._cs = cs
+        if self._cs is not None:
+            self._cs.switch_to_output(True)
         self._reset.switch_to_input(pull=digitalio.Pull.UP)
         self.reset()
         # No device type check!  Catch an error from the very first request and
         # throw a nicer message to indicate possible wiring problems.
         version = self._read_u8(_RH_RF95_REG_42_VERSION)
+        print(version)
         if version != 18:
             raise RuntimeError('Failed to find rfm9x with expected version -- check wiring')
 
@@ -409,7 +410,11 @@ class RFM9x:
         txdata.append(address & 0x7F)
         for i in range(0, length):
             txdata.append(0)
+        if self._cs is not None:
+            self._cs.value = 0
         ret = self._device.xfer(txdata)
+        if self._cs is not None:
+            self._cs.value = 1
         for i in range(0, length):
             buf[i] = ret[i+1]
             # self._BUFFER[0] = address & 0x7F  # Strip out top bit to set 0
@@ -420,7 +425,11 @@ class RFM9x:
     def _read_u8(self, address):
         data = [address & 0x7F, 0]
         #print("Read: 0x{:02X}".format(address))
+        if self._cs is not None:
+            self._cs.value = 0
         ret = self._device.xfer(data)
+        if self._cs is not None:
+            self._cs.value = 1
         return ret[1]
 
     def _write_from(self, address, buf, length=None):
@@ -435,7 +444,11 @@ class RFM9x:
             txdata.append(buf[i])
 
         #print("Write_from: {}".format(txdata))
+        if self._cs is not None:
+            self._cs.value = 0
         ret = self._device.xfer(txdata)
+        if self._cs is not None:
+            self._cs.value = 1
             # self._BUFFER[0] = (address | 0x80) & 0xFF  # Set top bit to 1 to
             #                                            # indicate a write.
             # device.write(self._BUFFER, end=1)
@@ -446,7 +459,11 @@ class RFM9x:
         # 8-bit value to write to that address.
         txdata = [(address | 0x80) & 0xFF, val]
         #print("Write: 0x{:02X} <- 0x{:02X}".format(address, val))
+        if self._cs is not None:
+            self._cs.value = 0
         ret = self._device.xfer(txdata)
+        if self._cs is not None:
+            self._cs.value = 1
             # self._BUFFER[0] = (address | 0x80) & 0xFF  # Set top bit to 1 to
             #                                            # indicate a write.
             # self._BUFFER[1] = val & 0xFF

@@ -1,12 +1,11 @@
-import appareo_rfm9x
+import pirf_rfm9x
 import argparse
-
 import board
 import busio
 import digitalio
-
 import time
 import struct
+import spidev
 
 def calculate_ber(total_bits, error_bits, packet, expected_msg):
 
@@ -27,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description=infoStr)
     parser.add_argument('-f', '--freq',
                         type=float,
-                        default=443.0,
+                        default=915.0,
                         help="RF Frequency in Mhz")
     parser.add_argument('-n', '--number_of_messages',
                         type=int,
@@ -49,15 +48,38 @@ def main():
                         type=float,
                         default=1,
                         help="Delay between transmit packets")
+    parser.add_argument('-b', '--baudrate',
+                        type=int,
+                        default=1000000,
+                        help="Default baud rate")
+    parser.add_argument('--pirfhat',
+                        action='store_true',
+                        help="Set if you are using the PiRfHat")
     args = parser.parse_args()
 
-    PWR = digitalio.DigitalInOut(board.D23)
-    RESET = digitalio.DigitalInOut(board.D24)
+    if args.pirfhat:
+        PWR = digitalio.DigitalInOut(board.D4)
+        RESET = digitalio.DigitalInOut(board.D6)
+        spibus = spidev.SpiDev()
+        # The PiRfHat is connected to SPI1, but not to any of the SPI CS
+        spibus.open(1, 2)
+        spibus.max_speed_hz = args.baudrate
+        spibus.cshigh = False
+        CS = digitalio.DigitalInOut(board.D8)
+    else:
+        PWR = digitalio.DigitalInOut(board.D23)
+        RESET = digitalio.DigitalInOut(board.D24)
+        spibus = spidev.SpiDev()
+        spibus.open(0, 1)
+        spibus.max_speed_hz = args.baudrate
+        spibus.cshigh = False
+        CS = None
+
 
     PWR.switch_to_output()
     PWR.value = True
     # Initialze RFM radio
-    rfm9x = appareo_rfm9x.RFM9x(0, 0, RESET, args.freq)
+    rfm9x = pirf_rfm9x.RFM9x(spibus, CS, RESET, args.freq)
 
     # Note that the radio is configured in LoRa mode so you can't control sync
     # word, encryption, frequency deviation, or other settings!
