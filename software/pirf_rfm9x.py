@@ -364,7 +364,6 @@ class RFM9x:
         # No device type check!  Catch an error from the very first request and
         # throw a nicer message to indicate possible wiring problems.
         version = self._read_u8(_RH_RF95_REG_42_VERSION)
-        print(version)
         if version != 18:
             raise RuntimeError('Failed to find rfm9x with expected version -- check wiring')
 
@@ -731,6 +730,7 @@ class RFM9x:
         while not timed_out and not self.tx_done:
             if (time.monotonic() - start) >= timeout:
                 timed_out = True
+                print("Timed out during send")
         # Listen again if necessary and return the result packet.
         if keep_listening:
             self.listen()
