@@ -2,93 +2,24 @@ import os
 import pirf_rfm9x
 import argparse
 import board
-import busio
 import digitalio
 import time
-import struct
 import spidev
-import binascii
 import picamera
+from gps import *
+from lora_xfer import *
 
-def send_file(rfm9x, sendfile, max_payload = 200):
-    print("Sending file {}".format(sendfile))
-    f = open(sendfile, "rb")
-    x = f.read()
 
-    chunks = (len(x) // max_payload) + 1
-    print(len(x))
-    print(chunks)
-    sequence_counter = 0
-    offset = 0
-    command = 0
-    crc = binascii.crc32(x)
-
-    while offset < len(x):
-        if command == 0:
-            sn = bytearray(struct.pack("<HIII", command, sequence_counter, len(x), crc))
-        else:
-            sn = bytearray(struct.pack("<HI", command, sequence_counter))
-        packet_size = min(max_payload, len(x) - offset)
-        payload = x[offset:offset+packet_size]
-        packet = sn + payload
-        sequence_counter += 1
-        if command == 0:
-            command = 1
-        offset += packet_size
-        print(binascii.hexlify(sn))
-        rfm9x.send(packet)
-
-def receive_file(rfm9x, receivefile, delay):
-    done = False
-    sequence = 0
-    filedata = []
-    bytes_received = 0
-    print("Receiving file")
-    while not done:
-        packet = rfm9x.receive(timeout=delay * 4)
-        if packet is None:
-            print("Timeout")
-        elif packet[0] == 0:
-            sn, total_bytes, expected_crc = struct.unpack("<III", packet[2:14])
-            print("Receiving file of size {} SN: {}".format(total_bytes, sn))
-            data = packet[14::]
-            # We received the correct sequence number, put into array
-            f = open(receivefile, "wb")
-            f.write(data)
-            sequence = 1
-            bytes_received = len(data)
-        elif packet[0] == 1:
-            sn = struct.unpack("<i", packet[2:6])[0]
-            data = packet[6::]
-            if sn == sequence:
-                # We received the correct sequence number, put into array
-                f.write(data)
-                sequence += 1
-                bytes_received += len(data)
-                if bytes_received >= total_bytes:
-                    done = True
-                    # Check the CRC
-                    f.close()
-                    f = open(receivefile, "rb")
-                    x = f.read()
-                    f.close()
-                    calc_crc = binascii.crc32(x)
-                    if calc_crc != expected_crc:
-                        print("Error: CRC doesn't match, file correctup")
-                else:
-                    rssi = rfm9x.rssi
-                    snr = rfm9x.snr
-                    percent_complete = round((bytes_received / total_bytes) * 100, 1)
-                    print("SN: {} RSSI: {:3} SNR: {:5.2f} Percent complete: {}".format(sn, rssi, snr, percent_complete))
-
-            else:
-                print("Error: wrong sequence number. Expected {} Received {}".format(sequence, sn))
-                print(binascii.hexlify(packet))
-
-        else:
-            print("Error: invalid command")
-            print(binascii.hexlify(packet))
-
+def get_gps(gpsd):
+    while True:
+        report = gpsd.next()
+        if report['class'] == 'TPV':
+            print(report)
+            latitude  = report['lat']
+            longitude = report['lon']
+            #alt       = report['alt']
+            break;
+    return latitude, longitude, 0
 
 def main():
     infoStr = """Script to test lora"""
@@ -97,14 +28,6 @@ def main():
                         type=float,
                         default=915.0,
                         help="RF Frequency in Mhz")
-    parser.add_argument('-n', '--number_of_messages',
-                        type=int,
-                        default=-1,
-                        help="Max number of messages to transmit")
-    parser.add_argument('-r', '--rx',
-                        action='store_true',
-                        default=False,
-                        help="Define to receive instead of transmit")
     parser.add_argument('-p', '--power',
                         type=int,
                         default=23,
@@ -125,7 +48,7 @@ def main():
                         help="Set if you are using the PiRfHat")
     parser.add_argument('--cap_delay',
                         type=int,
-                        default=30,
+                        default=5,
                         help="Delay between image captures")
     parser.add_argument('-q', '--quality',
                         type=int,
@@ -151,7 +74,6 @@ def main():
         spibus.cshigh = False
         CS = None
 
-
     PWR.switch_to_output()
     PWR.value = True
     # Initialze RFM radio
@@ -161,26 +83,36 @@ def main():
     # high power radios like the RFM95 can go up to 23 dB:
     rfm9x.tx_power = args.power
     rfm9x.enable_crc = True
+    rfm9x.signal_bandwidth = 500000
+    rfm9x.spreading_factor = 7
+
+    xfer = lora_xfer(rfm9x)
 
     if args.server:
+        gpsd = gps(mode=WATCH_ENABLE)
         with picamera.PiCamera() as camera:
             #camera.resolution = (3280, 2464)
             camera.resolution = (640, 480)
             camera.hflip = True
             camera.vflip = True
             while True:
-                camera.annotate_text = time.asctime()
-                camera.annotate_background = picamera.Color(r=0, g=0, b=0)
-                #camera.annotate_text_size = 48
-                camera.capture("cap.jpg")
-                compression_str = "ffmpeg -y -i cap.jpg -b:v {} cap.hevc".format(args.quality)
-                os.system(compression_str)
-                #os.system("ffmpeg -y -i cap.jpg -b:v 1M cap.hevc")
                 time.sleep(args.cap_delay)
-                send_file(rfm9x, "cap.hevc")
+                print("Getting GPS")
+                latitude, longitude, alt = get_gps(gpsd)
+                print("Got GPS")
+                img_str = "{}\n{} {} {}".format(time.asctime(), latitude, longitude, alt)
+                camera.annotate_text = img_str
+                camera.annotate_background = picamera.Color(r=0, g=0, b=0)
+                camera.capture("cap.jpg")
+                #compression_str = "ffmpeg -y -i cap.jpg -b:v {} cap.hevc".format(args.quality)
+                compression_str = "ffmpeg -y -i cap.jpg cap.webm"
+                os.system(compression_str)
+                xfer.send_file("cap.webm")
     else:
         while True:
-            receive_file(rfm9x, "cap.hevc", args.delay)
+            xfer.receive_file("cap.webm", args.delay)
+            decompression_str = "ffmpeg -y -i cap.webm cap.jpg"
+            os.system(decompression_str)
 
 if __name__ == "__main__":
     # execute only if run as a script
