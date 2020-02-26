@@ -11,15 +11,23 @@ from lora_xfer import *
 
 
 def get_gps(gpsd):
-    while True:
-        report = gpsd.next()
-        if report['class'] == 'TPV':
-            print(report)
+    PI_LED1 = digitalio.DigitalInOut(board.D10)
+    PI_LED1.switch_to_output()
+    latitude = 0
+    longitude = 0
+    alt = 0
+    report = gpsd.next()
+    if report['class'] == 'TPV':
+        print(report)
+        try:
+            PI_LED1.value = True
             latitude  = report['lat']
             longitude = report['lon']
             #alt       = report['alt']
-            break;
-    return latitude, longitude, 0
+            pass
+        except Exception as e:
+            print("GPS Not ready")
+    return latitude, longitude, alt
 
 def main():
     infoStr = """Script to test lora"""
