@@ -6,6 +6,11 @@
     <script src="static/js/application.js"></script>
 
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <style>
+    table, th, td {
+      border: 1px solid black;
+    }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -15,19 +20,30 @@
 </div>
 </div>
 
+<div class="container" id="content">
+    <table style="width:100%">
+      <tr>
+        <th>Parameter</th>
+        <th>Value</th>
+      </tr>
+      <tr>
+        <td>RSSI</td>
+        <td><div id="rssi"></td>
+      </tr>
+      <tr>
+        <td>SNR</td>
+        <td><div id="snr"></td>
+      </tr>
+      <tr>
+        <td>Timeout</td>
+        <td><div id="lastmsg"></td>
+      </tr>
+    </table>
+</div>
+
 <div class="container", id="image_container">
     <img id="image" src="static/img.jpg?1234">
 </div>
-
-<div class="container" id="content">
-    <div class="row">
-        <p>Asynchronous page updates will appear here:</p>
-        <h3>Number list:</h3>
-        <div id="log">
-        </div> <!-- /#log -->
-    </div>
-</div>
-
 
 </body>
 </html>

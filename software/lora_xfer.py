@@ -35,6 +35,10 @@ class lora_xfer:
             self.rfm9x.send(packet)
 
     def receive_file(self, receivefile, delay):
+        success = False
+        rssi_avg = 0
+        snr_avg = 0
+        rx_packets = 0
         done = False
         sequence = 0
         filedata = []
@@ -44,6 +48,7 @@ class lora_xfer:
             packet = self.rfm9x.receive(timeout=delay * 4)
             if packet is None:
                 print("Timeout")
+                done = True
             elif packet[0] == 0:
                 sn, total_bytes, expected_crc = struct.unpack("<III", packet[2:14])
                 print("Receiving file of size {} SN: {}".format(total_bytes, sn))
@@ -63,6 +68,9 @@ class lora_xfer:
                     bytes_received += len(data)
                     if bytes_received >= total_bytes:
                         done = True
+                        success = True
+                        rssi_avg /= rx_packets
+                        snr_avg /= rx_packets
                         # Check the CRC
                         f.close()
                         f = open(receivefile, "rb")
@@ -76,6 +84,9 @@ class lora_xfer:
                         snr = self.rfm9x.snr
                         percent_complete = round((bytes_received / total_bytes) * 100, 1)
                         print("SN: {} RSSI: {:3} SNR: {:5.2f} Percent complete: {}".format(sn, rssi, snr, percent_complete))
+                        rssi_avg += rssi
+                        snr_avg += snr
+                        rx_packets += 1
 
                 else:
                     print("Error: wrong sequence number. Expected {} Received {}".format(sequence, sn))
@@ -84,3 +95,5 @@ class lora_xfer:
             else:
                 print("Error: invalid command")
                 print(binascii.hexlify(packet))
+
+        return success, rssi_avg, snr_avg

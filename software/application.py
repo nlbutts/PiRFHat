@@ -24,13 +24,6 @@ socketio = SocketIO(app, async_mode=None, logger=True, engineio_logger=True)
 thread = Thread()
 thread_stop_event = Event()
 
-class Singleton(type):
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
 class LoraRx(Thread):
     def __init__(self, freq, delay, pirfhat):
         Thread.__init__(self)
@@ -69,29 +62,46 @@ class LoraRx(Thread):
 
         self.xfer = lora_xfer(self.rfm9x)
 
-        self.number = 0
+        self.delay = delay
 
     def run(self):
         print("***Starting LoraRX Thread")
+        last_img = 0
+        prev_rssi = 0
+        prev_snr = 0
         while True:
-            self.xfer.receive_file("cap.webm", args.delay)
-            decompression_str = "ffmpeg -y -i cap.webm static/img.jpg"
-            os.system(decompression_str)
-            self.number += 1
-            socketio.emit('newnumber', {'number': self.number}, namespace='/test')
+            ret, rssi, snr = self.xfer.receive_file("cap.webm", self.delay)
+            if ret:
+                last_img = 0
+                prev_rssi = rssi
+                prev_snr = snr
+                decompression_str = "ffmpeg -y -i cap.webm static/img.jpg"
+                os.system(decompression_str)
+                d = {}
+                d['number'] = last_img
+                d['rssi'] = round(rssi, 1)
+                d['snr'] = round(snr, 1)
+                socketio.emit('newnumber', d, namespace='/test')
+            else:
+                d = {}
+                last_img += self.delay
+                d['number'] = last_img
+                d['rssi'] = prev_rssi
+                d['snr'] = prev_snr
+                socketio.emit('newnumber', d, namespace='/test')
 
 
-def randomNumberGenerator():
-    """
-    Generate a random number every 1 second and emit to a socketio instance (broadcast)
-    Ideally to be run in a separate thread?
-    """
-    #infinite loop of magical random numbers
-    print("Making random numbers")
-    while not thread_stop_event.isSet():
-        number = round(random()*10, 3)
-        #socketio.emit('newnumber', {'number': number}, namespace='/test')
-        socketio.sleep(5)
+# def randomNumberGenerator():
+#     """
+#     Generate a random number every 1 second and emit to a socketio instance (broadcast)
+#     Ideally to be run in a separate thread?
+#     """
+#     #infinite loop of magical random numbers
+#     print("Making random numbers")
+#     while not thread_stop_event.isSet():
+#         number = round(random()*10, 3)
+#         #socketio.emit('newnumber', {'number': number}, namespace='/test')
+#         socketio.sleep(1)
 
 
 @app.route('/')
@@ -106,9 +116,9 @@ def test_connect():
     print('Client connected')
 
     #Start the random number generator thread only if the thread has not been started before.
-    if not thread.isAlive():
-        print("Starting Thread")
-        thread = socketio.start_background_task(randomNumberGenerator)
+    # if not thread.isAlive():
+    #     print("Starting Thread")
+    #     thread = socketio.start_background_task(randomNumberGenerator)
 
 @socketio.on('disconnect', namespace='/test')
 def test_disconnect():
