@@ -70,17 +70,17 @@ class LoraRx(Thread):
         prev_rssi = 0
         prev_snr = 0
         while True:
-            ret, rssi, snr = self.xfer.receive_file("cap.webm", self.delay)
+            ret, rssi, snr = self.xfer.receive_file("cap.hevc", self.delay)
             if ret:
                 last_img = 0
-                prev_rssi = rssi
-                prev_snr = snr
-                decompression_str = "ffmpeg -y -i cap.webm static/img.jpg"
+                prev_rssi = round(rssi, 1)
+                prev_snr = round(snr, 1)
+                decompression_str = "ffmpeg -y -i cap.hevc static/img.jpg"
                 os.system(decompression_str)
                 d = {}
                 d['number'] = last_img
-                d['rssi'] = round(rssi, 1)
-                d['snr'] = round(snr, 1)
+                d['rssi'] = prev_rssi
+                d['snr'] = prev_snr
                 socketio.emit('newnumber', d, namespace='/test')
             else:
                 d = {}

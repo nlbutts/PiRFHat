@@ -62,6 +62,10 @@ def main():
                         type=int,
                         default=800000,
                         help="Compression quality for the HEVC")
+    parser.add_argument('-r', '--resolution',
+                        type=int,
+                        default=1,
+                        help="0=640, 1=1280, 2=1920, 3=3280")
     args = parser.parse_args()
 
     if args.pirfhat:
@@ -96,11 +100,24 @@ def main():
 
     xfer = lora_xfer(rfm9x)
 
+    if args.resolution == 0:
+        w = 640
+        h = 480
+    elif args.resolution == 1:
+        w = 1280
+        h = 960
+    elif args.resolution == 2:
+        w = 1920
+        h = 1440
+    else:
+        w = 3280
+        h = 2464
+
     if args.server:
         gpsd = gps(mode=WATCH_ENABLE)
         with picamera.PiCamera() as camera:
-            #camera.resolution = (3280, 2464)
-            camera.resolution = (640, 480)
+            camera.resolution = (w, h)
+            #camera.resolution = (640, 480)
             camera.hflip = True
             camera.vflip = True
             while True:
@@ -112,14 +129,14 @@ def main():
                 camera.annotate_text = img_str
                 camera.annotate_background = picamera.Color(r=0, g=0, b=0)
                 camera.capture("cap.jpg")
-                #compression_str = "ffmpeg -y -i cap.jpg -b:v {} cap.hevc".format(args.quality)
-                compression_str = "ffmpeg -y -i cap.jpg cap.webm"
+                compression_str = "ffmpeg -y -i cap.jpg -b:v {} cap.hevc".format(args.quality)
+                #compression_str = "ffmpeg -y -i cap.jpg cap.webm"
                 os.system(compression_str)
-                xfer.send_file("cap.webm")
+                xfer.send_file("cap.hevc")
     else:
         while True:
-            xfer.receive_file("cap.webm", args.delay)
-            decompression_str = "ffmpeg -y -i cap.webm cap.jpg"
+            xfer.receive_file("cap.hevc", args.delay)
+            decompression_str = "ffmpeg -y -i cap.hevc cap.jpg"
             os.system(decompression_str)
 
 if __name__ == "__main__":
