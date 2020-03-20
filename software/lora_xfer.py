@@ -45,7 +45,7 @@ class lora_xfer:
         bytes_received = 0
         print("Receiving file")
         while not done:
-            packet = self.rfm9x.receive(timeout=delay * 4)
+            packet = self.rfm9x.receive(timeout=delay)
             if packet is None:
                 print("Timeout")
                 done = True

@@ -52,3 +52,13 @@ The file transfer protocol is very simple. You can use the LoRa header to addres
 
 The **Sequence Number** is a monotonically increasing 32-bit number that indicates which packet this is.
 
+# GStreamer Notes
+On the Pi this will stream to a bin file.
+```
+gst-launch-1.0 -v v4l2src ! 'video/x-raw, width=(int)1280, height=(int)960, framerate=(fraction)1/1' ! videoconvert ! omxh264enc target-bitrate=20000 ! mp4mux ! filesink location=test.mp4
+```
+
+On a PC this will play it back:
+```
+gst-launch-1.0 -v filesrc location=test.bin ! h264parse ! avdec_h264 ! 'video/x-raw, framerate=(fraction)1/1' ! glimagesink
+```

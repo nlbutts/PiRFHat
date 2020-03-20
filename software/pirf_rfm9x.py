@@ -499,6 +499,21 @@ class RFM9x:
         self.operation_mode = TX_MODE
         self.dio0_mapping = 0b01  # Interrupt on tx done.
 
+    def fsk_mode(self):
+        """Reconfigure the radio to be in FSK mode
+        250 Kbps Bitrate 15:8 = 0, 7:0 = 0x80
+        FDev + BR/2 <= 250 KHz
+        BR = 250 Kbps
+        FDev must be 125000 or less, lets say we pick 100000 KHz
+        Beta = 2 * FDev / BR = 0.8
+
+
+        """
+        self.operation_mode = TX_MODE
+        self.dio0_mapping = 0b01  # Interrupt on tx done.
+
+        #
+
     @property
     def preamble_length(self):
         """The length of the preamble for sent and received packets, an unsigned
