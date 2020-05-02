@@ -1,0 +1,6 @@
+#!/bin/bash
+scp src/* pi@pi3:projects/lora/src
+scp CMakeLists.txt pi@pi3:projects/lora
+
+scp src/* pi@piz:projects/lora/src
+scp CMakeLists.txt pi@piz:projects/lora
