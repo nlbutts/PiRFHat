@@ -310,6 +310,7 @@ void SX1276::init()
 
   setModem(MODEM_FSK);
   m_settings.state = STATE_IDLE;
+  m_debug = false;
 }
 
 void SX1276::rxChainCalibration()
@@ -558,7 +559,8 @@ SX1276::RADIO_EVENT_T SX1276::send(uint8_t *buffer, uint8_t size,
             writeReg(FSK_RegPayloadLength, size );
           }
 
-        if ( (size > 0) && (size <= 64) )
+        //if ( (size > 0) && (size <= 64) )
+        if ( (size > 0) && (size <= 255) )
           {
             m_settings.fskPacketHandler.ChunkSize = size;
           }
@@ -1256,16 +1258,30 @@ SX1276::RADIO_EVENT_T SX1276::setTx(int timeout)
 
   initClock();
   uint8_t irqFlags;
+  uint8_t prevIrqFlags = 0;
   while ((getMillis() < static_cast<uint32_t>(timeout)) && m_radioEvent == REVENT_EXEC)
   {
     switch (m_settings.modem)
     {
       case MODEM_FSK:
         irqFlags = readReg(FSK_RegIrqFlags2);
+        if (m_debug)
+        {
+          if (irqFlags != prevIrqFlags)
+          {
+            printf("IrqFlags2: %02X\n", irqFlags);
+          }
+          prevIrqFlags = irqFlags;
+        }
         if (irqFlags & IRQFLAGS2_PacketSent)
         {
           onDio0Irq(this);
         }
+        // if ((irqFlags & IRQFLAGS2_FifoLevel) == 0)
+        // {
+        //   //printf("FIFO Interrupt\n");
+        //   onDio1Irq(this);
+        // }
         break;
       case MODEM_LORA:
         irqFlags = readReg(LOR_RegIrqFlags);
@@ -1517,6 +1533,7 @@ SX1276::RADIO_EVENT_T SX1276::setRx(uint32_t timeout)
   uint8_t irqFlags2;
   uint8_t prevIrqFlags1 = 0;
   uint8_t prevIrqFlags2 = 0;
+  uint8_t rssi;
   while ((getMillis() < timeout) && m_radioEvent == REVENT_EXEC)
   {
     // Read
@@ -1525,13 +1542,24 @@ SX1276::RADIO_EVENT_T SX1276::setRx(uint32_t timeout)
       case MODEM_FSK:
         irqFlags1 = readReg(FSK_RegIrqFlags1);
         irqFlags2 = readReg(FSK_RegIrqFlags2);
-        // if ((prevIrqFlags1 != irqFlags1) || (prevIrqFlags2 != irqFlags2))
-        //   printf("Flags 1: %02X  2: %02X\n", irqFlags1, irqFlags2);
-        // prevIrqFlags1 = irqFlags1;
-        // prevIrqFlags2 = irqFlags2;
+        if (m_debug)
+        {
+          if ((prevIrqFlags1 != irqFlags1) || (prevIrqFlags2 != irqFlags2))
+            printf("Flags 1: %02X  2: %02X\n", irqFlags1, irqFlags2);
+          prevIrqFlags1 = irqFlags1;
+          prevIrqFlags2 = irqFlags2;
+        }
+        if (irqFlags2 & IRQFLAGS1_RxReady)
+        {
+          m_rxRSSI = getRSSI(MODEM_FSK);
+        }
         if (irqFlags2 & IRQFLAGS2_PayloadReady)
         {
           onDio0Irq(this);
+        }
+        if (irqFlags2 & IRQFLAGS2_FifoLevel)
+        {
+          onDio1Irq(this);
         }
         break;
       case MODEM_LORA:
@@ -1724,7 +1752,7 @@ void SX1276::onDio0Irq(void *ctx)
             }
 
           // RxDone radio event
-          This->m_rxRSSI = This->m_settings.fskPacketHandler.RssiValue;
+          //This->m_rxRSSI = This->m_settings.fskPacketHandler.RssiValue;
           This->m_rxLen = This->m_settings.fskPacketHandler.Size;
           This->m_radioEvent = REVENT_DONE;
           // cerr << __FUNCTION__ << ": FSK RxDone" << endl;
@@ -1737,8 +1765,6 @@ void SX1276::onDio0Irq(void *ctx)
           This->m_settings.fskPacketHandler.SyncWordDetected = false;
           This->m_settings.fskPacketHandler.NbBytes = 0;
           This->m_settings.fskPacketHandler.Size = 0;
-
-          printf("RSSI: %d\n", This->m_rxRSSI);
 
           break;
 
@@ -1841,8 +1867,8 @@ void SX1276::onDio0Irq(void *ctx)
             // bytes regardless of the packet size I sent.  Something
             // is wrong here.
             //            cerr << __FUNCTION__ << ": RxDone (LORA)" << endl;
-            This->m_rxRSSI = (int)rssi;
-            This->m_rxSNR = (int)snr;
+            //This->m_rxRSSI = (int)rssi;
+            //This->m_rxSNR = (int)snr;
             This->m_rxLen = This->m_settings.loraPacketHandler.Size;
             This->m_radioEvent = REVENT_DONE;
             // if (This->m_settings.state == STATE_RX_RUNNING)

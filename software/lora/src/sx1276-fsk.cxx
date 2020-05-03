@@ -56,6 +56,7 @@ int main(int argc, char** argv)
     TCLAP::ValueArg<int> payload("", "payload","payload length", false, 32, "Bytes", cmd);
     TCLAP::ValueArg<int> delay("", "delay","delay between packet tx", false, 100, "ms", cmd);
     TCLAP::SwitchArg crc("", "crc","Enable CRC", cmd, false);
+    TCLAP::SwitchArg debug("", "debug","Enable debug", cmd, false);
     cmd.parse( argc, argv );
 
     signal(SIGINT, sig_handler);
@@ -119,12 +120,29 @@ int main(int argc, char** argv)
     char buffer[buflen];
     std::chrono::milliseconds ms{delay.getValue()};
 
+    uint32_t bufSize = payload.getValue();
+    uint8_t * databuffer = new uint8_t[bufSize];
+
+    if (debug.getValue())
+    {
+      sensor.debug(true);
+    }
+
     while (shouldRun) {
         if (!rx.getValue())
         {
+            for (int i = 0; i < bufSize; i++)
+            {
+              databuffer[i] = rand();
+            }
+            databuffer[0] = (count >> 24) & 0xFF;
+            databuffer[1] = (count >> 16) & 0xFF;
+            databuffer[2] = (count >>  8) & 0xFF;
+            databuffer[3] = (count      ) & 0xFF;
+            sensor.send(databuffer, bufSize, 3000);
             snprintf(buffer, buflen, "Ping %d", count++);
             cout << "Sending..." << std::string(buffer) << endl;
-            sensor.sendStr(string(buffer), 3000);
+            //sensor.sendStr(string(buffer), 3000);
 
             sensor.setSleep();
             std::this_thread::sleep_for(ms);
@@ -138,7 +156,15 @@ int main(int argc, char** argv)
             }
             else
             {
-                cout << "Received Buffer: " << sensor.getRxBufferStr() << endl;
+              uint8_t * rxData = sensor.getRxBuffer();
+              uint32_t seqNum = (rxData[0] << 24) |
+                                (rxData[1] << 16) |
+                                (rxData[2] <<  8) |
+                                (rxData[3]      );
+
+              //cout << "RSSI: " << rssi << " -- Received Buffer: " << sensor.getRxBufferStr() << endl;
+              //printf("RSSI: %3d  -- Received Buffer: %s\n", sensor.getRxRSSI(), sensor.getRxBufferStr().c_str());
+              printf("RSSI: %3d  -- Received bytes: %d -- Seq Num: %d\n", sensor.getRxRSSI(), sensor.getRxLen(), seqNum);
             }
 
             // go back to upm_delay when done

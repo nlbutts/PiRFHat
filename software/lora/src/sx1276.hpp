@@ -1869,6 +1869,15 @@
       return m_rxLen;
     };
 
+    /**
+     * @brief Enable the debug functionality
+     *
+     * @param enable true to enable debug
+     */
+    void debug(bool enable)
+    {
+      m_debug = enable;
+    }
 
   protected:
     // I/O
@@ -2010,6 +2019,7 @@
     volatile int m_rxSNR;
     volatile int m_rxLen;
     uint8_t m_rxBuffer[FIFO_SIZE];
+    bool m_debug;
 
     // for coordinating interrupt access
     pthread_mutex_t m_intrLock;
